@@ -18,8 +18,8 @@ class TaskVector:
             self.task_vector_param_dict = task_vector_param_dict
         else:
             self.task_vector_param_dict = {}
-            pretrained_param_dict = {param_name: param_value for param_name, param_value in pretrained_model.named_parameters()}
-            finetuned_param_dict = {param_name: param_value for param_name, param_value in finetuned_model.named_parameters()}
+            pretrained_param_dict = dict(pretrained_model.named_parameters())
+            finetuned_param_dict = dict(finetuned_model.named_parameters())
             param_names_to_merge = get_param_names_to_merge(input_param_names=list(pretrained_param_dict.keys()), exclude_param_names_regex=exclude_param_names_regex)
             with torch.no_grad():
                 for param_name in param_names_to_merge:
@@ -54,12 +54,13 @@ class TaskVector:
         :param scaling_coefficient: float, scaling coefficient to merge the task vector
         :return:
         """
-        pretrained_param_dict = {param_name: param_value for param_name, param_value in pretrained_model.named_parameters()}
+        pretrained_param_dict = dict(pretrained_model.named_parameters())
 
         with torch.no_grad():
-            merged_params = {}
-            for param_name in self.task_vector_param_dict:
-                merged_params[param_name] = pretrained_param_dict[param_name] + scaling_coefficient * self.task_vector_param_dict[param_name]
-
+            merged_params = {
+                param_name: pretrained_param_dict[param_name]
+                + scaling_coefficient * self.task_vector_param_dict[param_name]
+                for param_name in self.task_vector_param_dict
+            }
         return merged_params
 

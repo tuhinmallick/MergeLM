@@ -23,7 +23,7 @@ class MultiTaskModel(nn.Module):
         :param dataset_ids: torch.Tensor, shape (batch_size, ), mapped indices of datasets
         :return:
         """
-        if "token_type_ids" in kwargs.keys():
+        if "token_type_ids" in kwargs:
             # token_type_ids, torch.Tensor, shape(batch_size, seq_len), token type ids(needed for BERT)
             base_model_output = self.base_model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=kwargs["token_type_ids"])
         else:

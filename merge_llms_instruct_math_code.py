@@ -114,11 +114,11 @@ def get_merge_performance(args: argparse.Namespace, finetuned_model_names: list,
             merged_model.save_pretrained(save_directory=save_model_path)
             tokenizers[index].save_pretrained(save_directory=save_model_path)
             index += 1
-    logger.info(f"models are saved")
+    logger.info("models are saved")
     del merged_model, tokenizers
 
     if save_instruct_model_path is not None:
-        logger.info(f"evaluating merged model on instruct task...")
+        logger.info("evaluating merged model on instruct task...")
         llm = create_llm(finetuned_model_name=save_instruct_model_path, pretrained_model_name=args.pretrained_model_name,
                          args=args, logger=logger, tensor_parallel_size=args.tensor_parallel_size,
                          just_inference=True, save_model_path=None)
@@ -128,7 +128,7 @@ def get_merge_performance(args: argparse.Namespace, finetuned_model_names: list,
                          save_model_path=None, save_gen_results_folder=save_gen_results_folder)
 
     if save_math_model_path is not None:
-        logger.info(f"evaluating merged model on math task...")
+        logger.info("evaluating merged model on math task...")
         llm = create_llm(finetuned_model_name=save_math_model_path, pretrained_model_name=args.pretrained_model_name,
                          args=args, logger=logger, tensor_parallel_size=args.tensor_parallel_size,
                          just_inference=True, save_model_path=None)
@@ -140,7 +140,7 @@ def get_merge_performance(args: argparse.Namespace, finetuned_model_names: list,
                             start_index=args.start_index, end_index=args.end_index, save_model_path=None)
 
     if save_code_model_path is not None:
-        logger.info(f"evaluating merged model on code task...")
+        logger.info("evaluating merged model on code task...")
         llm = create_llm(finetuned_model_name=save_code_model_path, pretrained_model_name=args.pretrained_model_name,
                          args=args, logger=logger, tensor_parallel_size=args.tensor_parallel_size,
                          just_inference=True, save_model_path=None)
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     logger.addHandler(ch)
 
     run_start_time = time.time()
-    logger.info(f"********** Run starts. **********")
+    logger.info("********** Run starts. **********")
 
     models_to_merge = []
     finetuned_tokenizers = []

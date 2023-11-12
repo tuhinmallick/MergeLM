@@ -21,31 +21,25 @@ def is_number(s):
 
 def extract_answer_number(completion):
     text = completion.split('The answer is: ')
-    if len(text) > 1:
-        extract_ans = text[-1].strip()
-        match = re.search(r'[\-+]?\d*[\.,/]?\d+', extract_ans)
-        if match:
-            if '/' in match.group():
-                denominator = match.group().split('/')[1]
-                numerator = match.group().split('/')[0]
-                if is_number(denominator) == True and is_number(numerator) == True:
-                    if denominator == '0':
-                        return round(float(numerator.replace(',', '')))
-                    else:
-                        frac = Fraction(match.group().replace(',', ''))
-                        num_numerator = frac.numerator
-                        num_denominator = frac.denominator
-                        return round(float(num_numerator / num_denominator))
-                else:
-                    return None
-            else:
-                if float(match.group().replace(',', '')) == float('inf'):
-                    return None
-                return round(float(match.group().replace(',', '')))
-        else:
-            return None
-    else:
+    if len(text) <= 1:
         return None
+    extract_ans = text[-1].strip()
+    if not (match := re.search(r'[\-+]?\d*[\.,/]?\d+', extract_ans)):
+        return None
+    if '/' not in match.group():
+        return (
+            None
+            if float(match.group().replace(',', '')) == float('inf')
+            else round(float(match.group().replace(',', '')))
+        )
+    denominator = match.group().split('/')[1]
+    numerator = match.group().split('/')[0]
+    if is_number(denominator) != True or is_number(numerator) != True:
+        return None
+    if denominator == '0':
+        return round(float(numerator.replace(',', '')))
+    frac = Fraction(match.group().replace(',', ''))
+    return round(float(frac.numerator / frac.denominator))
 
 
 def batch_data(data_list, batch_size=1):
@@ -79,14 +73,11 @@ def process_results(doc, completion, answer, invalid_outputs):
         extract_ans_temp = ans.split('.\n')[0]
         extract_ans_temp = extract_ans_temp.strip()
         if len(extract_ans_temp) > 0 and extract_ans_temp[-1] == '.':
-            extract_ans = extract_ans_temp[0:-1]
+            extract_ans = extract_ans_temp[:-1]
         else:
             extract_ans = extract_ans_temp
         extract_ans = extract_ans.strip()
-        if is_equiv(extract_ans, answer):
-            return True
-        else:
-            return False
+        return bool(is_equiv(extract_ans, answer))
     else:
         temp = {'question': doc, 'output': completion, 'answer': answer}
         invalid_outputs.append(temp)
@@ -97,8 +88,8 @@ def last_boxed_only_string(string):
     idx = string.rfind("\\boxed")
     if idx < 0:
         idx = string.rfind("\\fbox")
-        if idx < 0:
-            return None
+    if idx < 0:
+        return None
 
     i = idx
     right_brace_idx = None
@@ -113,12 +104,7 @@ def last_boxed_only_string(string):
                 break
         i += 1
 
-    if right_brace_idx == None:
-        retval = None
-    else:
-        retval = string[idx:right_brace_idx + 1]
-
-    return retval
+    return None if right_brace_idx is None else string[idx:right_brace_idx + 1]
 
 
 def fix_fracs(string):
@@ -138,17 +124,16 @@ def fix_fracs(string):
                 a = substr[0]
                 b = substr[1]
                 if b != "{":
-                    if len(substr) > 2:
-                        post_substr = substr[2:]
-                        new_str += "{" + a + "}{" + b + "}" + post_substr
-                    else:
-                        new_str += "{" + a + "}{" + b + "}"
+                    new_str += (
+                        "{" + a + "}{" + b + "}" + substr[2:]
+                        if len(substr) > 2
+                        else "{" + a + "}{" + b + "}"
+                    )
+                elif len(substr) > 2:
+                    post_substr = substr[2:]
+                    new_str += "{" + a + "}" + b + post_substr
                 else:
-                    if len(substr) > 2:
-                        post_substr = substr[2:]
-                        new_str += "{" + a + "}" + b + post_substr
-                    else:
-                        new_str += "{" + a + "}" + b
+                    new_str += "{" + a + "}" + b
     string = new_str
     return string
 
@@ -161,21 +146,18 @@ def fix_a_slash_b(string):
     try:
         a = int(a)
         b = int(b)
-        assert string == "{}/{}".format(a, b)
-        new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
-        return new_string
+        assert string == f"{a}/{b}"
+        return "\\frac{" + str(a) + "}{" + str(b) + "}"
     except AssertionError:
         return string
 
 
 def remove_right_units(string):
-    # "\\text{ " only ever occurs (at least in the val set) when describing units
-    if "\\text{ " in string:
-        splits = string.split("\\text{ ")
-        assert len(splits) == 2
-        return splits[0]
-    else:
+    if "\\text{ " not in string:
         return string
+    splits = string.split("\\text{ ")
+    assert len(splits) == 2
+    return splits[0]
 
 
 def fix_sqrt(string):
@@ -232,7 +214,7 @@ def strip_string(string):
     if len(string) == 0:
         return string
     if string[0] == ".":
-        string = "0" + string
+        string = f"0{string}"
 
     # to consider: get rid of e.g. "k = " or "q = " at beginning
     if len(string.split("=")) == 2:
@@ -277,14 +259,14 @@ def is_equiv(str1, str2, verbose=False):
 
 
 def generate_instruction_following_task_prompt(instruction, is_chat_model=True):
-    if is_chat_model:
-        prompt = f"""A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: {instruction} ASSISTANT:"""
-    else:
-        prompt = f"""{instruction}
+    return (
+        f"""A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: {instruction} ASSISTANT:"""
+        if is_chat_model
+        else f"""{instruction}
 
 ### Response:
 """
-    return prompt
+    )
 
 def get_math_task_prompt():
     problem_prompt = (
@@ -296,7 +278,7 @@ def get_math_task_prompt():
 
 
 def generate_code_task_prompt(input_text):
-    INSTRUCTION = f"""Below is an instruction that describes a task. Write a response that appropriately completes the request.
+    return f"""Below is an instruction that describes a task. Write a response that appropriately completes the request.
 
 
 ### Instruction:
@@ -304,7 +286,6 @@ Create a Python script for this problem:
 {input_text}
 
 ### Response:"""
-    return INSTRUCTION
 
 
 def read_mbpp(path):

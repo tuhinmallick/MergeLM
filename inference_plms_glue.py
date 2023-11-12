@@ -93,7 +93,7 @@ if __name__ == "__main__":
         logger.addHandler(fh)
         logger.addHandler(ch)
 
-        logger.info(f"********** Run starts. **********")
+        logger.info("********** Run starts. **********")
         logger.info(f"configuration is {args}")
 
         train_dataset, val_dataset, test_dataset, num_labels = glue_data_loader.load_dataset(dataset_name=dataset_name,
