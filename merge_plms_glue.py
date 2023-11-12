@@ -111,7 +111,7 @@ def get_merge_performance(args: argparse.Namespace, models_to_merge: list, train
         )
 
         logger.info(f"perform model merging method {args.merging_method_name}:")
-        logger.info(f"get performance...")
+        logger.info("get performance...")
         test_metrics = merged_model_evaluator.evaluate()
         test_metrics = {k: float(f"{v:.4f}") if isinstance(v, float) else v for k, v in test_metrics.items()}
         logger.info(f"test performance on dataset {dataset_name}: {test_metrics}")

@@ -144,4 +144,4 @@ class MultiDatasets(Dataset):
         return self.datasets[dataset_index][index]
 
     def __len__(self):
-        return sum([len(dataset) for dataset in self.datasets])
+        return sum(len(dataset) for dataset in self.datasets)

@@ -94,7 +94,7 @@ if __name__ == "__main__":
     logger.addHandler(ch)
 
     run_start_time = time.time()
-    logger.info(f"********** Run starts. **********")
+    logger.info("********** Run starts. **********")
 
     logger.info(f"configuration is {args}")
 
@@ -119,14 +119,14 @@ if __name__ == "__main__":
     llm = LLM(model=load_model_path, tensor_parallel_size=args.tensor_parallel_size)
 
     if save_instruct_model_path is not None:
-        logger.info(f"evaluating merged model on instruct task...")
+        logger.info("evaluating merged model on instruct task...")
         save_gen_results_folder = f"./save_gen_instruct_responses_results/{'_'.join(merge_task_names)}/alpaca_eval/{args.save_model_name}"
         test_alpaca_eval(llm=llm, finetuned_model_name=save_instruct_model_path,
                          args=args, logger=logger, start_index=args.start_index, end_index=args.end_index,
                          save_model_path=None, save_gen_results_folder=save_gen_results_folder)
 
     if save_math_model_path is not None:
-        logger.info(f"evaluating merged model on math task...")
+        logger.info("evaluating merged model on math task...")
         test_data_path = "math_code_data/gsm8k_test.jsonl"
         test_gsm8k(llm=llm, test_data_path=test_data_path, args=args, logger=logger,
                    start_index=args.start_index, end_index=args.end_index, save_model_path=None)
@@ -135,7 +135,7 @@ if __name__ == "__main__":
                             start_index=args.start_index, end_index=args.end_index, save_model_path=None)
 
     if save_code_model_path is not None:
-        logger.info(f"evaluating merged model on code task...")
+        logger.info("evaluating merged model on code task...")
         save_gen_results_folder = f"./save_gen_codes_results/{'_'.join(merge_task_names)}/human_eval/{args.save_model_name}"
         test_human_eval(llm=llm, args=args, logger=logger, start_index=args.start_index, end_index=args.end_index,
                         save_model_path=None, save_gen_results_folder=save_gen_results_folder)

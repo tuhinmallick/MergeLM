@@ -50,7 +50,7 @@ def mask_model_weights(finetuned_model: nn.Module, pretrained_model: nn.Module, 
     """
     # get weights that need to be masked
     if weight_format == "finetuned_weight":
-        param_dict = {param_name: param_value for param_name, param_value in finetuned_model.named_parameters()}
+        param_dict = dict(finetuned_model.named_parameters())
         # exclude parameter whose name matches element in exclude_param_names_regex
         param_names_to_merge = get_param_names_to_merge(input_param_names=list(param_dict.keys()), exclude_param_names_regex=exclude_param_names_regex)
         model_param_dict = {param_name: param_dict[param_name] for param_name in param_names_to_merge}
@@ -60,11 +60,15 @@ def mask_model_weights(finetuned_model: nn.Module, pretrained_model: nn.Module, 
         model_param_dict = task_vector.task_vector_param_dict
 
     with torch.no_grad():
-        masked_param_dict = {}
-        for param_name, param_value in tqdm(model_param_dict.items()):
-            masked_param_dict[param_name] = mask_input_with_mask_rate(input_tensor=param_value, mask_rate=weight_mask_rate,
-                                                                      use_rescale=use_weight_rescale, mask_strategy=mask_strategy)
-
+        masked_param_dict = {
+            param_name: mask_input_with_mask_rate(
+                input_tensor=param_value,
+                mask_rate=weight_mask_rate,
+                use_rescale=use_weight_rescale,
+                mask_strategy=mask_strategy,
+            )
+            for param_name, param_value in tqdm(model_param_dict.items())
+        }
         if weight_format == "delta_weight":
             new_task_vector = TaskVector(task_vector_param_dict=masked_param_dict)
             # combine with parameters of the merged model based on scaling coefficient

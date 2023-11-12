@@ -76,7 +76,7 @@ if __name__ == "__main__":
         logger.addHandler(ch)
 
         run_start_time = time.time()
-        logger.info(f"********** Run starts. **********")
+        logger.info("********** Run starts. **********")
 
         logger.info(f"configuration is {args}")
 

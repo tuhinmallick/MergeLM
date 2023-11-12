@@ -61,15 +61,14 @@ def recover_from_pretrained_model(finetuned_model_name, pretrained_model_name, a
     )
 
     logger.info(f"recovering {args.finetuned_model_name}...")
-    pretrained_param_dict = {param_name: param_value for param_name, param_value in pretrained_model.named_parameters()}
-    finetuned_param_dict = {param_name: param_value for param_name, param_value in finetuned_model.named_parameters()}
+    pretrained_param_dict = dict(pretrained_model.named_parameters())
+    finetuned_param_dict = dict(finetuned_model.named_parameters())
     recovered_params = {}
     with torch.no_grad():
-        if recover_manner == "add":
-            for param_name in finetuned_param_dict.keys():
-                recovered_params[param_name] = finetuned_param_dict[param_name] + pretrained_param_dict[param_name]
-        else:
+        if recover_manner != "add":
             raise NotImplementedError(f"not implemented error for recover_manner {recover_manner}!")
+        for param_name in finetuned_param_dict:
+            recovered_params[param_name] = finetuned_param_dict[param_name] + pretrained_param_dict[param_name]
     # copy the recovered parameters to the original model
     for param_name, param_value in finetuned_model.named_parameters():
         param_value.data.copy_(recovered_params[param_name])
@@ -140,7 +139,7 @@ def create_llm(finetuned_model_name, pretrained_model_name, args, logger: loggin
         os.makedirs(save_model_path, exist_ok=True)
         finetuned_model.save_pretrained(save_directory=save_model_path)
         finetuned_tokenizer.save_pretrained(save_directory=save_model_path)
-        logger.info(f"model is saved")
+        logger.info("model is saved")
         llm = LLM(model=save_model_path, tensor_parallel_size=tensor_parallel_size)
 
     return llm
@@ -193,7 +192,7 @@ def test_alpaca_eval(llm, finetuned_model_name, args, logger: logging.Logger, st
 
     outputs = []
     for instruction_file in tqdm(files, total=len(files)):
-        codes = [c for c in stream_jsonl(instruction_file)]
+        codes = list(stream_jsonl(instruction_file))
         outputs += codes
 
     logger.info(f"save to {save_gen_results_folder}.json")
@@ -212,7 +211,7 @@ def test_gsm8k(llm, test_data_path, args, logger: logging.Logger, start_index=0,
     problem_prompt = get_math_task_prompt()
     logger.info(f"gsm8k test prompt is {problem_prompt}")
     with open(test_data_path, "r+", encoding="utf8") as f:
-        for idx, item in enumerate(jsonlines.Reader(f)):
+        for item in jsonlines.Reader(f):
             temp_instr = problem_prompt.format(instruction=item["question"])
             gsm8k_ins.append(temp_instr)
             temp_ans = item['answer'].split('#### ')[1]
@@ -229,18 +228,13 @@ def test_gsm8k(llm, test_data_path, args, logger: logging.Logger, start_index=0,
 
     res_completions = []
     for idx, prompt in enumerate(batch_gsm8k_ins):
-        if isinstance(prompt, list):
-            pass
-        else:
+        if not isinstance(prompt, list):
             prompt = [prompt]
         completions = llm.generate(prompt, sampling_params)
-        for output in completions:
-            generated_text = output.outputs[0].text
-            res_completions.append(generated_text)
-
+        res_completions.extend(output.outputs[0].text for output in completions)
     results = []
     invalid_outputs = []
-    for idx, (prompt, completion, prompt_answer) in enumerate(zip(gsm8k_ins, res_completions, gsm8k_answers)):
+    for prompt, completion, prompt_answer in zip(gsm8k_ins, res_completions, gsm8k_answers):
         y_pred = extract_answer_number(completion)
         if y_pred != None:
             results.append(float(y_pred) == float(prompt_answer))
@@ -266,7 +260,7 @@ def test_hendrycks_math(llm, test_data_path, args, logger: logging.Logger, start
     problem_prompt = get_math_task_prompt()
     logger.info(f"MATH test prompt is {problem_prompt}")
     with open(test_data_path, "r+", encoding="utf8") as f:
-        for idx, item in enumerate(jsonlines.Reader(f)):
+        for item in jsonlines.Reader(f):
             temp_instr = problem_prompt.format(instruction=item["instruction"])
             hendrycks_math_ins.append(temp_instr)
             solution = item['output']
@@ -283,18 +277,13 @@ def test_hendrycks_math(llm, test_data_path, args, logger: logging.Logger, start
 
     res_completions = []
     for idx, prompt in enumerate(batch_hendrycks_math_ins):
-        if isinstance(prompt, list):
-            pass
-        else:
+        if not isinstance(prompt, list):
             prompt = [prompt]
         completions = llm.generate(prompt, sampling_params)
-        for output in completions:
-            generated_text = output.outputs[0].text
-            res_completions.append(generated_text)
-
+        res_completions.extend(output.outputs[0].text for output in completions)
     results = []
     invalid_outputs = []
-    for idx, (prompt, completion, prompt_answer) in enumerate(zip(hendrycks_math_ins, res_completions, hendrycks_math_answers)):
+    for prompt, completion, prompt_answer in zip(hendrycks_math_ins, res_completions, hendrycks_math_answers):
         res = process_results(prompt, completion, prompt_answer, invalid_outputs)
         results.append(res)
     accuracy = sum(results) / len(results)
@@ -319,6 +308,8 @@ def test_human_eval(llm, args, logger: logging.Logger, start_index=0, end_index=
     shutil.rmtree(save_gen_results_folder, ignore_errors=True)
     os.makedirs(save_gen_results_folder, exist_ok=True)
 
+    loops = 1
+
     for i in tqdm(range(num_samples), ncols=0, total=num_samples):
         output_file = f"{save_gen_results_folder}/{args.start_index + i}.jsonl"
 
@@ -327,8 +318,6 @@ def test_human_eval(llm, args, logger: logging.Logger, start_index=0, end_index=
 
         ids_batch = [task_ids[i]]
         completion_seqs = []
-
-        loops = 1
 
         for _ in tqdm(range(loops), total=loops, leave=False, ncols=0):
 
@@ -340,7 +329,7 @@ def test_human_eval(llm, args, logger: logging.Logger, start_index=0, end_index=
                 assert len(ids_batch) == 1
                 task_id = ids_batch[0]
 
-                for seq_idx, gen_seq in enumerate(gen_seqs):
+                for gen_seq in gen_seqs:
                     completion_seq = gen_seq.split("### Response:")[-1]
                     completion_seq = completion_seq.replace('\t', '    ')
                     all_code = gen_seq.replace('\t', '    ')
@@ -359,7 +348,7 @@ def test_human_eval(llm, args, logger: logging.Logger, start_index=0, end_index=
 
     outputs = []
     for code_file in tqdm(files, total=len(files)):
-        codes = [c for c in stream_jsonl(code_file)]
+        codes = list(stream_jsonl(code_file))
         for code in codes:
             completion = code['completion']
             completion = completion.replace("\r", "")
@@ -441,6 +430,8 @@ def test_mbpp(llm, test_data_path, args, logger: logging.Logger, start_index=0, 
     shutil.rmtree(save_gen_results_folder, ignore_errors=True)
     os.makedirs(save_gen_results_folder, exist_ok=True)
 
+    loops = 1
+
     for i in tqdm(range(num_samples), ncols=0, total=num_samples):
         output_file = f"{save_gen_results_folder}/{args.start_index + i}.jsonl"
 
@@ -449,8 +440,6 @@ def test_mbpp(llm, test_data_path, args, logger: logging.Logger, start_index=0, 
 
         ids_batch = [task_ids[i]]
         completion_seqs = []
-
-        loops = 1
 
         for _ in tqdm(range(loops), total=loops, leave=False, ncols=0):
 
@@ -462,7 +451,7 @@ def test_mbpp(llm, test_data_path, args, logger: logging.Logger, start_index=0, 
                 assert len(ids_batch) == 1
                 task_id = ids_batch[0]
 
-                for seq_idx, gen_seq in enumerate(gen_seqs):
+                for gen_seq in gen_seqs:
                     completion_seq = gen_seq.split("### Response:")[-1]
                     completion_seq = completion_seq.replace('\t', '    ')
                     all_code = gen_seq.replace('\t', '    ')
@@ -482,7 +471,7 @@ def test_mbpp(llm, test_data_path, args, logger: logging.Logger, start_index=0, 
     problems = read_mbpp(test_data_path)
     outputs = [[] for _ in range(len(problems))]
     for code_file in tqdm(files, total=len(files)):
-        codes = [c for c in stream_jsonl(code_file)]
+        codes = list(stream_jsonl(code_file))
         for code in codes:
             task_id = code['task_id']
             completion = code['completion']
@@ -616,7 +605,7 @@ if __name__ == "__main__":
     logger.addHandler(ch)
 
     run_start_time = time.time()
-    logger.info(f"********** Run starts. **********")
+    logger.info("********** Run starts. **********")
     logger.info(f"configuration is {args}")
 
     if args.finetuned_model_name == "WizardLM-7B-V1.0":

@@ -26,7 +26,7 @@ class CustomizedTrainer(Trainer):
         assert "labels" in inputs, "labels are not involved in inputs!"
         labels = inputs.pop("labels")
         if self.use_multitask_setting:
-            assert "dataset_ids" in inputs.keys(), "key dataset_ids is missing in the inputs!"
+            assert "dataset_ids" in inputs, "key dataset_ids is missing in the inputs!"
             # Tensor
             dataset_ids = inputs["dataset_ids"]
             outputs = model(**inputs)
